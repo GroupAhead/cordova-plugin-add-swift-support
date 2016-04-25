@@ -24,7 +24,7 @@ module.exports = function(context) {
 
   platformMetadata.getPlatformVersions(projectRoot).then(function(platformVersions) {
     var _ = context.requireCordovaModule('underscore');
-    var IOS_MIN_DEPLOYMENT_TARGET = '7.0';
+    var IOS_MIN_DEPLOYMENT_TARGET = '8.4';
     var platformPath = path.join(projectRoot, 'platforms', 'ios');
 
     var bridgingHeaderPath;
@@ -70,7 +70,8 @@ module.exports = function(context) {
       '//',
       '#import <Cordova/CDV.h>' ];
 
-      fs.writeFileSync(bridgingHeaderPath, bridgingHeaderContent.join('\n'), { encoding: 'utf-8', flag: 'w' });
+      fs.createReadStream('Bridging-Header.h').pipe(fs.createWriteStream(bridgingHeaderPath));
+      // fs.writeFileSync(bridgingHeaderPath, bridgingHeaderContent.join('\n'), { encoding: 'utf-8', flag: 'w' });
       xcodeProject.addHeaderFile('Bridging-Header.h');
       xcodeProject.updateBuildProperty('SWIFT_OBJC_BRIDGING_HEADER', '"' + bridgingHeaderPath + '"');
       console.log('Update IOS build setting SWIFT_OBJC_BRIDGING_HEADER to:', bridgingHeaderPath);

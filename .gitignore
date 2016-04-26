@@ -1,1 +1,19 @@
-node_modules
+# OS
+*.DS_Store
+.svn
+
+# Android Studio
+workspace.xml
+out/
+*.apk
+*.iml
+*.ap_
+*.class
+.gradle/
+build/
+local.properties
+
+# IDE
+*.iml
+.idea/
+workspace.xml

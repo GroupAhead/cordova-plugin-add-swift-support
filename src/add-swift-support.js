@@ -19,6 +19,9 @@ var path = require('path');
 var xcode = require('xcode');
 
 module.exports = function(context) {
+  debugger
+  
+  console.log("Starting the plugin");
   var platformMetadata = context.requireCordovaModule('cordova-lib/src/cordova/platform_metadata');
   var projectRoot = context.opts.projectRoot;
 
@@ -55,57 +58,43 @@ module.exports = function(context) {
 
     xcodeProject.parseSync();
 
+    console.log("Adding the bridging header");
     bridgingHeaderPath = unquote(xcodeProject.getBuildProperty('SWIFT_OBJC_BRIDGING_HEADER'));
     bridgingHeaderPath = getBridgingHeaderPath(context, projectPath, iosPlatformVersion);
 
     // Copy the iOS Bridging-Header.h file over
-    fs.createReadStream('Bridging-Header.h').pipe(fs.createWriteStream(bridgingHeaderPath));
+    console.log("Project path: ", projectPath);
+    console.log("project.pbxproj path: ", pbxprojPath);
+    console.log("Final Bridging-Header path: ", bridgingHeaderPath);
+    
+    currentBridgingHeader = path.resolve(__dirname, "Bridging-Header.h");
+    console.log("Copying Bridging-Header from: ", currentBridgingHeader);
+    fs.createReadStream(currentBridgingHeader).pipe(fs.createWriteStream(bridgingHeaderPath));
 
     // Set the settings for Xcode
     xcodeProject.addHeaderFile('Bridging-Header.h');
     xcodeProject.updateBuildProperty('SWIFT_OBJC_BRIDGING_HEADER', '"' + bridgingHeaderPath + '"');
     console.log('Update IOS build setting SWIFT_OBJC_BRIDGING_HEADER to:', bridgingHeaderPath);
 
-    // Look for any bridging header defined in the plugin
-    child_process.exec('find . -name "*Bridging-Header*.h"', { cwd: pluginsPath }, function (error, stdout) {
+    console.log('Setting the IPHONEOS_DEPLOYMENT_TARGET:', IOS_MIN_DEPLOYMENT_TARGET);
+    if(parseFloat(xcodeProject.getBuildProperty('IPHONEOS_DEPLOYMENT_TARGET')) < parseFloat(IOS_MIN_DEPLOYMENT_TARGET)) {
+      xcodeProject.updateBuildProperty('IPHONEOS_DEPLOYMENT_TARGET', IOS_MIN_DEPLOYMENT_TARGET);
+      console.log('Update IOS project deployment target to:', IOS_MIN_DEPLOYMENT_TARGET);
+    }
 
-      var bridgingHeader = path.basename(bridgingHeaderPath);
-      var headers = _.compact(stdout.toString().split('\n').map(function (filePath) {
-        return path.basename(filePath);
-      }));
+    console.log('Setting the EMBEDDED_CONTENT_CONTAINS_SWIFT:', "YES");
+    if(xcodeProject.getBuildProperty('EMBEDDED_CONTENT_CONTAINS_SWIFT') !== 'YES') {
+      xcodeProject.updateBuildProperty('EMBEDDED_CONTENT_CONTAINS_SWIFT', 'YES');
+      console.log('Update IOS build setting EMBEDDED_CONTENT_CONTAINS_SWIFT to: YES');
+    }
 
-      // if other bridging headers are found, they are imported in the
-      // one already configured in the project.
-      var content = fs.readFileSync(bridgingHeaderPath, 'utf-8');
+    console.log('Setting the LD_RUNPATH_SEARCH_PATHS');
+    if(xcodeProject.getBuildProperty('LD_RUNPATH_SEARCH_PATHS') !== '"@executable_path/Frameworks"') {
+      xcodeProject.updateBuildProperty('LD_RUNPATH_SEARCH_PATHS','"@executable_path/Frameworks"');
+      console.log('Update IOS build setting LD_RUNPATH_SEARCH_PATHS to: @executable_path/Frameworks');
+    }
 
-      headers.forEach(function(header) {
-        if(header !== bridgingHeader && !~content.indexOf(header)) {
-          if (content.charAt(content.length - 1) !== '\n') {
-            content += '\n';
-          }
-          content += '#import "' + header + '"\n';
-          console.log('Importing', header, 'into', bridgingHeaderPath);
-        }
-      });
-      fs.writeFileSync(bridgingHeaderPath, content, 'utf-8');
-
-      if(parseFloat(xcodeProject.getBuildProperty('IPHONEOS_DEPLOYMENT_TARGET')) < parseFloat(IOS_MIN_DEPLOYMENT_TARGET)) {
-        xcodeProject.updateBuildProperty('IPHONEOS_DEPLOYMENT_TARGET', IOS_MIN_DEPLOYMENT_TARGET);
-        console.log('Update IOS project deployment target to:', IOS_MIN_DEPLOYMENT_TARGET);
-      }
-
-      if(xcodeProject.getBuildProperty('EMBEDDED_CONTENT_CONTAINS_SWIFT') !== 'YES') {
-        xcodeProject.updateBuildProperty('EMBEDDED_CONTENT_CONTAINS_SWIFT', 'YES');
-        console.log('Update IOS build setting EMBEDDED_CONTENT_CONTAINS_SWIFT to: YES');
-      }
-
-      if(xcodeProject.getBuildProperty('LD_RUNPATH_SEARCH_PATHS') !== '"@executable_path/Frameworks"') {
-        xcodeProject.updateBuildProperty('LD_RUNPATH_SEARCH_PATHS','"@executable_path/Frameworks"');
-        console.log('Update IOS build setting LD_RUNPATH_SEARCH_PATHS to: @executable_path/Frameworks');
-      }
-
-      fs.writeFileSync(pbxprojPath, xcodeProject.writeSync());
-    });
+    fs.writeFileSync(pbxprojPath, xcodeProject.writeSync());
   });
 };
 

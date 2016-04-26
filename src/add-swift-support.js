@@ -56,26 +56,15 @@ module.exports = function(context) {
     xcodeProject.parseSync();
 
     bridgingHeaderPath = unquote(xcodeProject.getBuildProperty('SWIFT_OBJC_BRIDGING_HEADER'));
+    bridgingHeaderPath = getBridgingHeaderPath(context, projectPath, iosPlatformVersion);
 
-    try{
-      fs.statSync(bridgingHeaderPath);
-    } catch(err) {
-      // If the bridging header doesn't exist, we create it with the minimum
-      // Cordova/CDV.h import.
+    // Copy the iOS Bridging-Header.h file over
+    fs.createReadStream('Bridging-Header.h').pipe(fs.createWriteStream(bridgingHeaderPath));
 
-      bridgingHeaderPath = getBridgingHeaderPath(context, projectPath, iosPlatformVersion);
-
-      bridgingHeaderContent = [ '//',
-      '//  Use this file to import your target\'s public headers that you would like to expose to Swift.',
-      '//',
-      '#import <Cordova/CDV.h>' ];
-
-      fs.createReadStream('Bridging-Header.h').pipe(fs.createWriteStream(bridgingHeaderPath));
-      // fs.writeFileSync(bridgingHeaderPath, bridgingHeaderContent.join('\n'), { encoding: 'utf-8', flag: 'w' });
-      xcodeProject.addHeaderFile('Bridging-Header.h');
-      xcodeProject.updateBuildProperty('SWIFT_OBJC_BRIDGING_HEADER', '"' + bridgingHeaderPath + '"');
-      console.log('Update IOS build setting SWIFT_OBJC_BRIDGING_HEADER to:', bridgingHeaderPath);
-    }
+    // Set the settings for Xcode
+    xcodeProject.addHeaderFile('Bridging-Header.h');
+    xcodeProject.updateBuildProperty('SWIFT_OBJC_BRIDGING_HEADER', '"' + bridgingHeaderPath + '"');
+    console.log('Update IOS build setting SWIFT_OBJC_BRIDGING_HEADER to:', bridgingHeaderPath);
 
     // Look for any bridging header defined in the plugin
     child_process.exec('find . -name "*Bridging-Header*.h"', { cwd: pluginsPath }, function (error, stdout) {
